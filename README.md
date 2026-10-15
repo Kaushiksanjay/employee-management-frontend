@@ -1,65 +1,118 @@
-# Employee Management System: Frontend (React + Vite)
+# Employee Management System
 
-Employee listing page that consumes the Spring Boot REST API.
+Full-stack assessment project: React + Axios frontend, Java 17 + Spring Boot 3 backend, MySQL.
 
 ## Features
-- Table of employees (ID, name, email, department, designation, status)
-- Add and edit employees through a form with required-field and email validation
-- Delete with a confirmation dialog
-- Server-side pagination (page numbers, Previous/Next, rows per page, "Showing 1–10 of 42")
-- Search by name (debounced) and filter by Active / Inactive, applied on the server
-- Loading, empty and error states (with retry); API failures never crash the app
-- Backend validation errors (e.g. duplicate email, HTTP 409) shown inline on the form
+- List, create, update and delete employees
+- Search by employee name
+- Filter by Active/Inactive
+- Required-field and email validation
+- Duplicate email prevention
+- Loading, empty and API error states
+- Spring layered architecture: Controller, Service, Repository
+- SQL setup and assessment queries
 
-## Setup
-Requires Node.js 18+.
+## Requirements
+- Java 17+
+- Maven 3.8+
+- Node.js 18+
+- MySQL 8+
+
+## 1. Create database
+Run `database/schema.sql` in MySQL.
+
+## 2. Configure and run the backend
+
+The backend reads its settings from environment variables, with defaults in
+`backend/src/main/resources/application.properties`.
+
+### Backend environment variables
+
+| Variable | Default | Required | Purpose |
+| --- | --- | --- | --- |
+| `SERVER_PORT` | `8080` | No | Port the API runs on |
+| `DB_URL` | `jdbc:mysql://localhost:3306/employee_management?createDatabaseIfNotExist=true` | No | JDBC connection URL |
+| `DB_USERNAME` | `root` | No | MySQL user |
+| `DB_PASSWORD` | none | **Yes** | MySQL password |
+| `JPA_DDL_AUTO` | `update` | No | Hibernate schema mode |
+| `JPA_SHOW_SQL` | `true` | No | Log SQL statements |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | No | Allowed frontend origins (comma-separated) |
+
+### Backend `.env` file
+
+Create `backend/.env` (next to `pom.xml`) from the template:
 
 ```bash
-npm install
-cp .env.example .env     # already included as .env; edit if needed
-npm run dev              # http://localhost:5173
+cd backend
+cp .env.example .env
 ```
 
-Start the Spring Boot backend first (default `http://localhost:8080`).
+Then edit it:
 
-### Environment variables
+```properties
+SERVER_PORT=8080
+DB_URL=jdbc:mysql://localhost:3306/employee_management?createDatabaseIfNotExist=true
+DB_USERNAME=root
+DB_PASSWORD=your_mysql_password
+JPA_DDL_AUTO=update
+JPA_SHOW_SQL=true
+CORS_ALLOWED_ORIGINS=http://localhost:5173
+```
+
+- `.env` is git-ignored. Only `.env.example` is committed.
+- If `DB_PASSWORD` is missing, startup fails with "Could not resolve placeholder 'DB_PASSWORD'".
+- The `.env` file is read from the folder the app starts in. In IntelliJ, set the run
+  configuration's Working directory to `backend`.
+- You can set the same variables as system environment variables instead of using a file.
+
+### Run the backend
+
+From `backend/`:
+```bash
+mvn spring-boot:run
+```
+Backend URL: `http://localhost:8080`
+
+## 3. Configure and run the React frontend
+
+### Frontend environment variables
+
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `VITE_API_BASE_URL` | `/api` | Base URL used by the frontend for API calls |
-| `VITE_PROXY_TARGET` | `http://localhost:8080` | Dev-server proxy target for `/api` (avoids CORS) |
+| `VITE_PROXY_TARGET` | `http://localhost:8080` | Where the Vite dev server forwards `/api` requests (the backend) |
 
-For a production build: `npm run build` (output in `dist/`). If the frontend is hosted on a different
-origin from the API, set `VITE_API_BASE_URL` to the full URL (e.g. `https://api.example.com/api`)
-and enable CORS in Spring Boot.
+### Frontend `.env` file
 
-## Expected API contract
-| Method | Endpoint | Notes |
-| --- | --- | --- |
-| GET | `/api/employees?page=0&size=10&search=&status=` | Spring `Page` JSON (`content`, `totalElements`, `totalPages`); see `docs/backend-pagination.md` |
-| GET | `/api/employees/{id}` | Single employee |
-| POST | `/api/employees` | Body: `fullName, email, department, designation, status` |
-| PUT | `/api/employees/{id}` | Same body |
-| DELETE | `/api/employees/{id}` | 204 No Content |
+Create `frontend/.env` (next to `package.json`) from the template:
 
-JSON fields: `id, fullName, email, department, designation, status` (`"ACTIVE"` / `"INACTIVE"`).
-Errors: `{ "message": "...", "errors": { "email": "..." } }` (both keys optional).
-
-**If your backend uses different field names or status values**, change only:
-- `src/api/employeeApi.js` (`fromApi` / `toApi`)
-- `src/utils/constants.js` (`STATUS`)
-
-## Structure
+```bash
+cd frontend
+cp .env.example .env
 ```
-src/
-  api/         httpClient.js (axios instance, error handling), employeeApi.js (endpoints + mapping)
-  hooks/       useEmployees.js (list state + mutations), useDebounce.js
-  components/  EmployeeTable, EmployeeForm, FormField, Modal, ConfirmDialog,
-               SearchBar, StatusFilter, StatusBadge, StateMessages, Toast
-  utils/       constants.js, validation.js
-  styles/      index.css
-  App.jsx      page composition
-```
-UI components never call the API directly; all API logic lives in `src/api` and `useEmployees`.
 
-## Known limitations
-- No column sorting (the backend sorts by ID).
+```properties
+VITE_API_BASE_URL=/api
+VITE_PROXY_TARGET=http://localhost:8080
+```
+
+- In development, keep `VITE_API_BASE_URL=/api`. The Vite dev server proxies it to the backend, so there are no CORS issues.
+- Only variables starting with `VITE_` are available to the app. Do not put secrets here, because the values are visible in the browser.
+- Restart `npm run dev` after changing `.env`.
+- If you deploy the frontend on a different address from the API, set `VITE_API_BASE_URL` to the full API URL (for example `https://api.example.com/api`) and add that address to the backend's `CORS_ALLOWED_ORIGINS`.
+
+### Run the frontend
+
+From `frontend/`:
+```bash
+npm install
+npm run dev
+```
+Frontend URL: `http://localhost:5173`
+
+## API endpoints
+- `GET /api/employees`
+- `GET /api/employees/{id}`
+- `POST /api/employees`
+- `PUT /api/employees/{id}`
+- `DELETE /api/employees/{id}`
